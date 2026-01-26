@@ -3,12 +3,12 @@ const types = @import("../types.zig");
 const skills_util = @import("../utils/skills.zig");
 const agents_md = @import("../utils/agents_md.zig");
 const dirs = @import("../utils/dirs.zig");
-const io = @import("../io_helper.zig");
+const io_helper = @import("../io_helper.zig");
 
 const Color = types.Color;
 
 /// Execute the sync command - updates AGENTS.md with installed skills
-pub fn execute(allocator: std.mem.Allocator, args: []const []const u8) !void {
+pub fn execute(allocator: std.mem.Allocator, _: std.Io, args: []const []const u8) !void {
     // Parse options
     var options = types.SyncOptions{};
 
@@ -37,7 +37,7 @@ pub fn execute(allocator: std.mem.Allocator, args: []const []const u8) !void {
 
     // Validate output file extension
     if (!std.mem.endsWith(u8, output_file, ".md")) {
-        io.printErr("{s}Error:{s} Output file must be a .md file\n", .{ Color.red, Color.reset });
+        io_helper.printErr("{s}Error:{s} Output file must be a .md file\n", .{ Color.red, Color.reset });
         std.process.exit(1);
     }
 
@@ -46,8 +46,8 @@ pub fn execute(allocator: std.mem.Allocator, args: []const []const u8) !void {
     defer skills_util.freeSkills(allocator, all_skills);
 
     if (all_skills.len == 0) {
-        io.print("{s}No skills installed.{s}\n", .{ Color.yellow, Color.reset });
-        io.print("Install skills first: skizz install owner/repo\n", .{});
+        io_helper.print("{s}No skills installed.{s}\n", .{ Color.yellow, Color.reset });
+        io_helper.print("Install skills first: skizz install owner/repo\n", .{});
         return;
     }
 
@@ -75,7 +75,7 @@ pub fn execute(allocator: std.mem.Allocator, args: []const []const u8) !void {
         }
     } else {
         // Interactive selection
-        io.print("\n{s}Available skills:{s}\n\n", .{ Color.bold, Color.reset });
+        io_helper.print("\n{s}Available skills:{s}\n\n", .{ Color.bold, Color.reset });
 
         for (all_skills, 0..) |skill, idx| {
             const in_file = agents_md.isSkillInContent(existing_content, skill.name);
@@ -85,7 +85,7 @@ pub fn execute(allocator: std.mem.Allocator, args: []const []const u8) !void {
             else
                 Color.gray ++ "(global)" ++ Color.reset;
 
-            io.print("  {d}. {s} {s}{s}{s} {s}\n", .{
+            io_helper.print("  {d}. {s} {s}{s}{s} {s}\n", .{
                 idx + 1,
                 marker,
                 Color.bold,
@@ -94,15 +94,15 @@ pub fn execute(allocator: std.mem.Allocator, args: []const []const u8) !void {
                 location_str,
             });
             if (skill.description.len > 0) {
-                io.print("       {s}{s}{s}\n", .{ Color.gray, skill.description, Color.reset });
+                io_helper.print("       {s}{s}{s}\n", .{ Color.gray, skill.description, Color.reset });
             }
         }
 
-        io.print("\nEnter skill numbers to sync (comma-separated, 'all', or 'none'): ", .{});
+        io_helper.print("\nEnter skill numbers to sync (comma-separated, 'all', or 'none'): ", .{});
 
         var input_buf: [256]u8 = undefined;
-        const input = io.readLine(&input_buf) orelse {
-            io.printErr("\n{s}Cancelled.{s}\n", .{ Color.yellow, Color.reset });
+        const input = io_helper.readLine(&input_buf) orelse {
+            io_helper.printErr("\n{s}Cancelled.{s}\n", .{ Color.yellow, Color.reset });
             return;
         };
 
@@ -114,7 +114,7 @@ pub fn execute(allocator: std.mem.Allocator, args: []const []const u8) !void {
             defer allocator.free(new_content);
 
             try skills_util.writeFile(output_file, new_content);
-            io.print("{s}✓{s} Skills section removed from {s}\n", .{
+            io_helper.print("{s}✓{s} Skills section removed from {s}\n", .{
                 Color.green,
                 Color.reset,
                 output_file,
@@ -145,7 +145,7 @@ pub fn execute(allocator: std.mem.Allocator, args: []const []const u8) !void {
             }
 
             if (selected_count == 0) {
-                io.print("{s}No valid skills selected.{s}\n", .{ Color.yellow, Color.reset });
+                io_helper.print("{s}No valid skills selected.{s}\n", .{ Color.yellow, Color.reset });
                 return;
             }
         }
@@ -175,8 +175,8 @@ pub fn execute(allocator: std.mem.Allocator, args: []const []const u8) !void {
     // Write file
     try skills_util.writeFile(output_file, new_content);
 
-    io.print("\n{s}✓{s} Updated {s}\n", .{ Color.green, Color.reset, output_file });
-    io.print("  Synced {d} skill(s)\n\n", .{selected_count});
+    io_helper.print("\n{s}✓{s} Updated {s}\n", .{ Color.green, Color.reset, output_file });
+    io_helper.print("  Synced {d} skill(s)\n\n", .{selected_count});
 }
 
 fn compareSkills(_: void, a: types.Skill, b: types.Skill) bool {

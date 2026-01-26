@@ -45,21 +45,19 @@ pub fn getSearchDirs(allocator: std.mem.Allocator) ![][]const u8 {
 /// Get the user's home directory
 pub fn getHomeDir(allocator: std.mem.Allocator) ![]const u8 {
     if (builtin.os.tag == .windows) {
-        if (std.process.getEnvVarOwned(allocator, "USERPROFILE")) |home| {
-            return home;
-        } else |_| {
-            if (std.process.getEnvVarOwned(allocator, "HOMEDRIVE")) |drive| {
-                defer allocator.free(drive);
-                if (std.process.getEnvVarOwned(allocator, "HOMEPATH")) |path| {
-                    defer allocator.free(path);
-                    return try std.mem.concat(allocator, u8, &.{ drive, path });
-                } else |_| {}
-            } else |_| {}
+        if (std.c.getenv("USERPROFILE")) |home| {
+            return try allocator.dupe(u8, std.mem.span(home));
+        } else {
+            if (std.c.getenv("HOMEDRIVE")) |drive| {
+                if (std.c.getenv("HOMEPATH")) |path| {
+                    return try std.mem.concat(allocator, u8, &.{ std.mem.span(drive), std.mem.span(path) });
+                }
+            }
         }
     } else {
-        if (std.process.getEnvVarOwned(allocator, "HOME")) |home| {
-            return home;
-        } else |_| {}
+        if (std.c.getenv("HOME")) |home| {
+            return try allocator.dupe(u8, std.mem.span(home));
+        }
     }
     return error.HomeDirNotFound;
 }
@@ -99,13 +97,14 @@ pub fn isGitUrl(source: []const u8) bool {
 
 /// Create directory recursively if it doesn't exist
 pub fn ensureDir(path: []const u8) !void {
-    std.fs.makeDirAbsolute(path) catch |err| switch (err) {
+    const io = @import("../cli.zig").getIo();
+    std.Io.Dir.createDirAbsolute(io, path, .default_dir) catch |err| switch (err) {
         error.PathAlreadyExists => {},
         error.FileNotFound => {
             // Parent doesn't exist, create it first
             if (std.fs.path.dirname(path)) |parent| {
                 try ensureDir(parent);
-                try std.fs.makeDirAbsolute(path);
+                try std.Io.Dir.createDirAbsolute(io, path, .default_dir);
             } else {
                 return err;
             }
@@ -116,15 +115,17 @@ pub fn ensureDir(path: []const u8) !void {
 
 /// Check if a directory exists
 pub fn dirExists(path: []const u8) bool {
-    var dir = std.fs.openDirAbsolute(path, .{}) catch return false;
-    dir.close();
+    const io = @import("../cli.zig").getIo();
+    var dir = std.Io.Dir.openDirAbsolute(io, path, .{}) catch return false;
+    dir.close(io);
     return true;
 }
 
 /// Check if a file exists
 pub fn fileExists(path: []const u8) bool {
-    const file = std.fs.openFileAbsolute(path, .{}) catch return false;
-    file.close();
+    const io = @import("../cli.zig").getIo();
+    const file = std.Io.Dir.openFileAbsolute(io, path, .{}) catch return false;
+    file.close(io);
     return true;
 }
 

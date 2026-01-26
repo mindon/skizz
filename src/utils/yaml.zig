@@ -35,13 +35,13 @@ pub fn extractYamlField(allocator: std.mem.Allocator, content: []const u8, field
 
 /// Check if content has valid YAML frontmatter (starts with ---)
 pub fn hasValidFrontmatter(content: []const u8) bool {
-    const trimmed = std.mem.trimLeft(u8, content, " \t\r\n");
+    const trimmed = std.mem.trimStart(u8, content, " \t\r\n");
     return std.mem.startsWith(u8, trimmed, "---");
 }
 
 /// Extract the frontmatter section from content
 fn extractFrontmatter(content: []const u8) ?[]const u8 {
-    const trimmed = std.mem.trimLeft(u8, content, " \t\r\n");
+    const trimmed = std.mem.trimStart(u8, content, " \t\r\n");
     if (!std.mem.startsWith(u8, trimmed, "---")) return null;
 
     // Find the closing ---
@@ -103,7 +103,7 @@ pub fn parseFrontmatter(allocator: std.mem.Allocator, content: []const u8) !std.
 
 /// Get content after frontmatter (the actual markdown body)
 pub fn getBodyContent(content: []const u8) []const u8 {
-    const trimmed = std.mem.trimLeft(u8, content, " \t\r\n");
+    const trimmed = std.mem.trimStart(u8, content, " \t\r\n");
     if (!std.mem.startsWith(u8, trimmed, "---")) return content;
 
     // Find the closing ---

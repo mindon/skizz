@@ -4,12 +4,12 @@ const skills_util = @import("../utils/skills.zig");
 const dirs = @import("../utils/dirs.zig");
 const yaml = @import("../utils/yaml.zig");
 const git = @import("../utils/git.zig");
-const io = @import("../io_helper.zig");
+const io_helper = @import("../io_helper.zig");
 
 const Color = types.Color;
 
 /// Execute the install command
-pub fn execute(allocator: std.mem.Allocator, args: []const []const u8) !void {
+pub fn execute(allocator: std.mem.Allocator, _: std.Io, args: []const []const u8) !void {
     // Parse options
     var options = types.InstallOptions{};
     var source: ?[]const u8 = null;
@@ -29,12 +29,12 @@ pub fn execute(allocator: std.mem.Allocator, args: []const []const u8) !void {
     }
 
     if (source == null) {
-        io.printErr("{s}Error:{s} Missing source\n", .{ Color.red, Color.reset });
-        io.printErr("\nUsage: skizz install <source> [options]\n", .{});
-        io.printErr("\nExamples:\n", .{});
-        io.printErr("  skizz install anthropics/skills\n", .{});
-        io.printErr("  skizz install owner/repo --global\n", .{});
-        io.printErr("  skizz install ./local/skill\n", .{});
+        io_helper.printErr("{s}Error:{s} Missing source\n", .{ Color.red, Color.reset });
+        io_helper.printErr("\nUsage: skizz install <source> [options]\n", .{});
+        io_helper.printErr("\nExamples:\n", .{});
+        io_helper.printErr("  skizz install anthropics/skills\n", .{});
+        io_helper.printErr("  skizz install owner/repo --global\n", .{});
+        io_helper.printErr("  skizz install ./local/skill\n", .{});
         std.process.exit(1);
     }
 
@@ -53,8 +53,8 @@ pub fn execute(allocator: std.mem.Allocator, args: []const []const u8) !void {
         try installFromGit(allocator, src, target_dir, options);
     }
 
-    io.print("\n{s}✓{s} Installation complete!\n", .{ Color.green, Color.reset });
-    io.print("  Run {s}skizz sync{s} to update AGENTS.md\n\n", .{ Color.cyan, Color.reset });
+    io_helper.print("\n{s}✓{s} Installation complete!\n", .{ Color.green, Color.reset });
+    io_helper.print("  Run {s}skizz sync{s} to update AGENTS.md\n\n", .{ Color.cyan, Color.reset });
 }
 
 /// Install from local path
@@ -83,7 +83,7 @@ fn installFromLocal(
     defer allocator.free(skill_path);
 
     if (!dirs.fileExists(skill_path)) {
-        io.printErr("{s}Error:{s} No SKILL.md found in {s}\n", .{ Color.red, Color.reset, abs_path });
+        io_helper.printErr("{s}Error:{s} No SKILL.md found in {s}\n", .{ Color.red, Color.reset, abs_path });
         std.process.exit(1);
     }
 
@@ -96,7 +96,7 @@ fn installFromLocal(
 
     if (dirs.dirExists(dest_path)) {
         if (!options.yes) {
-            io.print("{s}Warning:{s} Skill '{s}' already exists. Overwriting.\n", .{
+            io_helper.print("{s}Warning:{s} Skill '{s}' already exists. Overwriting.\n", .{
                 Color.yellow,
                 Color.reset,
                 skill_name,
@@ -106,10 +106,10 @@ fn installFromLocal(
     }
 
     // Copy skill directory
-    io.print("Installing {s}{s}{s}...\n", .{ Color.bold, skill_name, Color.reset });
+    io_helper.print("Installing {s}{s}{s}...\n", .{ Color.bold, skill_name, Color.reset });
     try skills_util.copyDir(allocator, abs_path, dest_path);
 
-    io.print("  {s}→{s} {s}\n", .{ Color.green, Color.reset, dest_path });
+    io_helper.print("  {s}→{s} {s}\n", .{ Color.green, Color.reset, dest_path });
 }
 
 /// Install from Git repository
@@ -121,15 +121,15 @@ fn installFromGit(
 ) !void {
     // Check if git is available
     if (!git.isGitAvailable(allocator)) {
-        io.printErr("{s}Error:{s} Git is not available. Please install git.\n", .{ Color.red, Color.reset });
+        io_helper.printErr("{s}Error:{s} Git is not available. Please install git.\n", .{ Color.red, Color.reset });
         std.process.exit(1);
     }
 
-    io.print("Cloning repository...\n", .{});
+    io_helper.print("Cloning repository...\n", .{});
 
     // Clone the repository
     const repo_path = git.cloneRepo(allocator, source) catch |err| {
-        io.printErr("{s}Error:{s} Failed to clone repository: {any}\n", .{ Color.red, Color.reset, err });
+        io_helper.printErr("{s}Error:{s} Failed to clone repository: {any}\n", .{ Color.red, Color.reset, err });
         std.process.exit(1);
     };
     defer {
@@ -165,7 +165,7 @@ fn installSpecificSkill(
     defer allocator.free(skill_file);
 
     if (!dirs.fileExists(skill_file)) {
-        io.printErr("{s}Error:{s} No SKILL.md found at {s}\n", .{ Color.red, Color.reset, skill_path });
+        io_helper.printErr("{s}Error:{s} No SKILL.md found at {s}\n", .{ Color.red, Color.reset, skill_path });
         std.process.exit(1);
     }
 
@@ -175,7 +175,7 @@ fn installSpecificSkill(
 
     if (dirs.dirExists(dest_path)) {
         if (!options.yes) {
-            io.print("{s}Warning:{s} Skill '{s}' already exists. Overwriting.\n", .{
+            io_helper.print("{s}Warning:{s} Skill '{s}' already exists. Overwriting.\n", .{
                 Color.yellow,
                 Color.reset,
                 skill_name,
@@ -184,9 +184,9 @@ fn installSpecificSkill(
         try skills_util.removeDir(dest_path);
     }
 
-    io.print("Installing {s}{s}{s}...\n", .{ Color.bold, skill_name, Color.reset });
+    io_helper.print("Installing {s}{s}{s}...\n", .{ Color.bold, skill_name, Color.reset });
     try skills_util.copyDir(allocator, full_path, dest_path);
-    io.print("  {s}→{s} {s}\n", .{ Color.green, Color.reset, dest_path });
+    io_helper.print("  {s}→{s} {s}\n", .{ Color.green, Color.reset, dest_path });
 }
 
 /// Install skills from a cloned repository (interactive selection)
@@ -204,11 +204,11 @@ fn installFromRepo(
     }
 
     if (skill_paths.len == 0) {
-        io.printErr("{s}Error:{s} No skills found in repository\n", .{ Color.red, Color.reset });
+        io_helper.printErr("{s}Error:{s} No skills found in repository\n", .{ Color.red, Color.reset });
         std.process.exit(1);
     }
 
-    io.print("\nFound {d} skill(s):\n", .{skill_paths.len});
+    io_helper.print("\nFound {d} skill(s):\n", .{skill_paths.len});
 
     // Collect skill info
     var skill_infos: std.ArrayList(SkillInfo) = .empty;
@@ -247,7 +247,7 @@ fn installFromRepo(
 
     // Display skills
     for (skill_infos.items, 0..) |info, idx| {
-        io.print("  {d}. {s}{s}{s} ({s})\n", .{
+        io_helper.print("  {d}. {s}{s}{s} ({s})\n", .{
             idx + 1,
             Color.bold,
             info.name,
@@ -255,7 +255,7 @@ fn installFromRepo(
             info.size_str,
         });
         if (info.description.len > 0) {
-            io.print("     {s}{s}{s}\n", .{ Color.gray, info.description, Color.reset });
+            io_helper.print("     {s}{s}{s}\n", .{ Color.gray, info.description, Color.reset });
         }
     }
 
@@ -273,18 +273,18 @@ fn installFromRepo(
         }
     } else {
         // Interactive selection
-        io.print("\nEnter skill numbers to install (comma-separated, or 'all'): ", .{});
+        io_helper.print("\nEnter skill numbers to install (comma-separated, or 'all'): ", .{});
 
         var input_buf: [256]u8 = undefined;
-        const input = io.readLine(&input_buf) orelse {
-            io.print("\n{s}Cancelled.{s}\n", .{ Color.yellow, Color.reset });
+        const input = io_helper.readLine(&input_buf) orelse {
+            io_helper.print("\n{s}Cancelled.{s}\n", .{ Color.yellow, Color.reset });
             return;
         };
 
         const trimmed = std.mem.trim(u8, input, " \t\r\n");
 
         if (trimmed.len == 0) {
-            io.print("{s}No skills selected.{s}\n", .{ Color.yellow, Color.reset });
+            io_helper.print("{s}No skills selected.{s}\n", .{ Color.yellow, Color.reset });
             return;
         }
 
@@ -311,7 +311,7 @@ fn installFromRepo(
             }
 
             if (selected_count == 0) {
-                io.print("{s}No valid skills selected.{s}\n", .{ Color.yellow, Color.reset });
+                io_helper.print("{s}No valid skills selected.{s}\n", .{ Color.yellow, Color.reset });
                 return;
             }
         }
@@ -320,7 +320,7 @@ fn installFromRepo(
     const selected = selected_buf[0..selected_count];
 
     // Install selected skills
-    io.print("\n", .{});
+    io_helper.print("\n", .{});
     for (selected) |idx| {
         const info = skill_infos.items[idx];
 
@@ -334,9 +334,9 @@ fn installFromRepo(
             try skills_util.removeDir(dest_path);
         }
 
-        io.print("Installing {s}{s}{s}...\n", .{ Color.bold, info.name, Color.reset });
+        io_helper.print("Installing {s}{s}{s}...\n", .{ Color.bold, info.name, Color.reset });
         try skills_util.copyDir(allocator, full_path, dest_path);
-        io.print("  {s}→{s} {s}\n", .{ Color.green, Color.reset, dest_path });
+        io_helper.print("  {s}→{s} {s}\n", .{ Color.green, Color.reset, dest_path });
     }
 }
 

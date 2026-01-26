@@ -1,20 +1,20 @@
 const std = @import("std");
 const types = @import("../types.zig");
 const skills_util = @import("../utils/skills.zig");
-const io = @import("../io_helper.zig");
+const io_helper = @import("../io_helper.zig");
 
 const Color = types.Color;
 
 /// Execute the list command - shows all installed skills
-pub fn execute(allocator: std.mem.Allocator) !void {
+pub fn execute(allocator: std.mem.Allocator, _: std.Io) !void {
     const skills = try skills_util.findAllSkills(allocator);
     defer skills_util.freeSkills(allocator, skills);
 
     if (skills.len == 0) {
-        io.print("\n{s}No skills installed.{s}\n\n", .{ Color.yellow, Color.reset });
-        io.print("Install skills:\n", .{});
-        io.print("  {s}skizz install anthropics/skills{s}      # Install to project\n", .{ Color.cyan, Color.reset });
-        io.print("  {s}skizz install owner/skill --global{s}   # Install globally\n\n", .{ Color.cyan, Color.reset });
+        io_helper.print("\n{s}No skills installed.{s}\n\n", .{ Color.yellow, Color.reset });
+        io_helper.print("Install skills:\n", .{});
+        io_helper.print("  {s}skizz install anthropics/skills{s}      # Install to project\n", .{ Color.cyan, Color.reset });
+        io_helper.print("  {s}skizz install owner/skill --global{s}   # Install globally\n\n", .{ Color.cyan, Color.reset });
         return;
     }
 
@@ -29,52 +29,52 @@ pub fn execute(allocator: std.mem.Allocator) !void {
         }
     }
 
-    io.print("\n{s}Installed Skills:{s}\n\n", .{ Color.bold, Color.reset });
+    io_helper.print("\n{s}Installed Skills:{s}\n\n", .{ Color.bold, Color.reset });
 
     var project_count: usize = 0;
     var global_count: usize = 0;
 
     for (skills) |skill| {
         // Print name with padding
-        io.print("  {s}{s}{s}", .{ Color.bold, skill.name, Color.reset });
+        io_helper.print("  {s}{s}{s}", .{ Color.bold, skill.name, Color.reset });
 
         // Padding
         const padding = max_name_len - skill.name.len + 2;
         for (0..padding) |_| {
-            io.print(" ", .{});
+            io_helper.print(" ", .{});
         }
 
         // Location badge
         switch (skill.location) {
             .project => {
-                io.print("{s}(project){s}", .{ Color.blue, Color.reset });
+                io_helper.print("{s}(project){s}", .{ Color.blue, Color.reset });
                 project_count += 1;
             },
             .global => {
-                io.print("{s}(global){s}", .{ Color.gray, Color.reset });
+                io_helper.print("{s}(global){s}", .{ Color.gray, Color.reset });
                 global_count += 1;
             },
         }
-        io.print("\n", .{});
+        io_helper.print("\n", .{});
 
         // Description
         if (skill.description.len > 0) {
-            io.print("    {s}{s}{s}\n", .{ Color.gray, skill.description, Color.reset });
+            io_helper.print("    {s}{s}{s}\n", .{ Color.gray, skill.description, Color.reset });
         }
     }
 
     // Summary
-    io.print("\n{s}Total:{s} {d} skill(s)", .{ Color.dim, Color.reset, skills.len });
+    io_helper.print("\n{s}Total:{s} {d} skill(s)", .{ Color.dim, Color.reset, skills.len });
     if (project_count > 0) {
-        io.print(" ({d} project", .{project_count});
+        io_helper.print(" ({d} project", .{project_count});
         if (global_count > 0) {
-            io.print(", {d} global", .{global_count});
+            io_helper.print(", {d} global", .{global_count});
         }
-        io.print(")", .{});
+        io_helper.print(")", .{});
     } else if (global_count > 0) {
-        io.print(" ({d} global)", .{global_count});
+        io_helper.print(" ({d} global)", .{global_count});
     }
-    io.print("\n\n", .{});
+    io_helper.print("\n\n", .{});
 }
 
 fn compareSkills(_: void, a: types.Skill, b: types.Skill) bool {

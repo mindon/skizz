@@ -1,12 +1,8 @@
 const std = @import("std");
 const cli = @import("cli.zig");
 
-pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
-    const allocator = gpa.allocator();
-
-    try cli.run(allocator);
+pub fn main(init: std.process.Init) !void {
+    try cli.run(init.gpa, init.minimal.args, init.io);
 }
 
 test "main module" {

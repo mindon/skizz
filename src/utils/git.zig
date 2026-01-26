@@ -19,7 +19,7 @@ pub fn cloneRepo(allocator: std.mem.Allocator, source: []const u8) ![]const u8 {
         allocator.free(result.stderr);
     }
 
-    if (result.term.Exited != 0) {
+    if (result.term.exited != 0) {
         std.debug.print("Git clone failed: {s}\n", .{result.stderr});
         return error.GitCloneFailed;
     }
@@ -71,17 +71,21 @@ pub fn extractSubpath(allocator: std.mem.Allocator, source: []const u8) !?[]cons
 /// Get a temporary directory path
 fn getTempDir(allocator: std.mem.Allocator) ![]const u8 {
     // Use random numbers for unique temp directory
-    const random1 = std.crypto.random.int(u64);
-    const random2 = std.crypto.random.int(u32);
+    const io = @import("../cli.zig").getIo();
+    var random_bytes: [12]u8 = undefined;
+    io.random(&random_bytes);
+
+    const random1 = std.mem.readInt(u64, random_bytes[0..8], .little);
+    const random2 = std.mem.readInt(u32, random_bytes[8..12], .little);
 
     const tmp_base = "/tmp";
     return try std.fmt.allocPrint(allocator, "{s}/skizz-{d}-{d}", .{ tmp_base, random1, random2 });
 }
 
 /// Run a git command and return the result
-fn runGitCommand(allocator: std.mem.Allocator, argv: []const []const u8) !std.process.Child.RunResult {
-    return try std.process.Child.run(.{
-        .allocator = allocator,
+fn runGitCommand(allocator: std.mem.Allocator, argv: []const []const u8) !std.process.RunResult {
+    const io = @import("../cli.zig").getIo();
+    return try std.process.run(allocator, io, .{
         .argv = argv,
     });
 }
@@ -93,7 +97,7 @@ pub fn isGitAvailable(allocator: std.mem.Allocator) bool {
         allocator.free(result.stdout);
         allocator.free(result.stderr);
     }
-    return result.term.Exited == 0;
+    return result.term.exited == 0;
 }
 
 /// Find all SKILL.md files in a directory (recursively)
@@ -119,11 +123,12 @@ fn findSkillFilesRecursive(
     // Limit recursion depth
     if (depth > 10) return;
 
-    var dir = std.fs.openDirAbsolute(current_path, .{ .iterate = true }) catch return;
-    defer dir.close();
+    const io = @import("../cli.zig").getIo();
+    var dir = std.Io.Dir.openDirAbsolute(io, current_path, .{}) catch return;
+    defer dir.close(io);
 
     var iter = dir.iterate();
-    while (try iter.next()) |entry| {
+    while (try iter.next(io)) |entry| {
         // Skip hidden directories and common non-skill directories
         if (entry.name[0] == '.') continue;
         if (std.mem.eql(u8, entry.name, "node_modules")) continue;
@@ -138,7 +143,11 @@ fn findSkillFilesRecursive(
 
             if (dirs.fileExists(skill_path)) {
                 // Calculate relative path from base
-                const rel_path = try std.fs.path.relative(allocator, base_path, entry_path);
+                // Use a simple string operation instead of relative()
+                const rel_path = if (std.mem.startsWith(u8, entry_path, base_path))
+                    try allocator.dupe(u8, entry_path[base_path.len..])
+                else
+                    try allocator.dupe(u8, entry_path);
                 try results.append(allocator, rel_path);
             } else {
                 // Recurse into subdirectory

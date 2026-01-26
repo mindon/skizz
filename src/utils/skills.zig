@@ -36,11 +36,12 @@ pub fn findAllSkills(allocator: std.mem.Allocator) ![]types.Skill {
     defer if (home.len > 0) allocator.free(home);
 
     for (search_dirs) |search_dir| {
-        var dir = std.fs.openDirAbsolute(search_dir, .{ .iterate = true }) catch continue;
-        defer dir.close();
+        const io = @import("../cli.zig").getIo();
+        var dir = std.Io.Dir.openDirAbsolute(io, search_dir, .{}) catch continue;
+        defer dir.close(io);
 
         var iter = dir.iterate();
-        while (try iter.next()) |entry| {
+        while (try iter.next(io)) |entry| {
             if (entry.kind != .directory and entry.kind != .sym_link) continue;
 
             // Check if already seen
@@ -132,10 +133,11 @@ pub fn freeSkills(allocator: std.mem.Allocator, skills: []types.Skill) void {
 
 /// Read entire file into allocated buffer
 pub fn readFileAlloc(allocator: std.mem.Allocator, path: []const u8) ![]const u8 {
-    const file = try std.fs.openFileAbsolute(path, .{});
-    defer file.close();
+    const io = @import("../cli.zig").getIo();
+    const file = try std.Io.Dir.openFileAbsolute(io, path, .{});
+    defer file.close(io);
 
-    const stat = try file.stat();
+    const stat = try file.stat(io);
     const size = stat.size;
 
     if (size > 10 * 1024 * 1024) { // 10MB limit
@@ -145,7 +147,7 @@ pub fn readFileAlloc(allocator: std.mem.Allocator, path: []const u8) ![]const u8
     const buffer = try allocator.alloc(u8, size);
     errdefer allocator.free(buffer);
 
-    const bytes_read = try file.preadAll(buffer, 0);
+    const bytes_read = try file.readPositionalAll(io, buffer, 0);
     if (bytes_read != size) {
         return error.UnexpectedEndOfFile;
     }
@@ -155,9 +157,15 @@ pub fn readFileAlloc(allocator: std.mem.Allocator, path: []const u8) ![]const u8
 
 /// Write content to file
 pub fn writeFile(path: []const u8, content: []const u8) !void {
-    const file = try std.fs.createFileAbsolute(path, .{});
-    defer file.close();
-    try file.writeAll(content);
+    const io = @import("../cli.zig").getIo();
+    const file = try std.Io.Dir.createFileAbsolute(io, path, .{});
+    defer file.close(io);
+
+    // Write using file writer
+    var buf: [8192]u8 = undefined;
+    var writer = std.Io.File.Writer.initStreaming(file, io, &buf);
+    try writer.interface.writeAll(content);
+    try writer.flush();
 }
 
 /// Copy directory recursively
@@ -165,11 +173,12 @@ pub fn copyDir(allocator: std.mem.Allocator, src_path: []const u8, dst_path: []c
     // Create destination directory
     try dirs.ensureDir(dst_path);
 
-    var src_dir = try std.fs.openDirAbsolute(src_path, .{ .iterate = true });
-    defer src_dir.close();
+    const io = @import("../cli.zig").getIo();
+    var src_dir = try std.Io.Dir.openDirAbsolute(io, src_path, .{});
+    defer src_dir.close(io);
 
     var iter = src_dir.iterate();
-    while (try iter.next()) |entry| {
+    while (try iter.next(io)) |entry| {
         const src_entry = try std.fs.path.join(allocator, &.{ src_path, entry.name });
         defer allocator.free(src_entry);
 
@@ -188,8 +197,9 @@ pub fn copyDir(allocator: std.mem.Allocator, src_path: []const u8, dst_path: []c
             .sym_link => {
                 // Read symlink target and recreate
                 var target_buf: [std.fs.max_path_bytes]u8 = undefined;
-                const target = try src_dir.readLink(entry.name, &target_buf);
-                try std.fs.symLinkAbsolute(target, dst_entry, .{});
+                const target_len = try src_dir.readLink(io, entry.name, &target_buf);
+                const target = target_buf[0..target_len];
+                try std.Io.Dir.symLink(std.Io.Dir.cwd(), io, target, dst_entry, .{});
             },
             else => {},
         }
@@ -198,21 +208,20 @@ pub fn copyDir(allocator: std.mem.Allocator, src_path: []const u8, dst_path: []c
 
 /// Remove directory recursively
 pub fn removeDir(path: []const u8) !void {
-    std.fs.deleteTreeAbsolute(path) catch |err| switch (err) {
-        error.FileNotFound => {},
-        else => return err,
-    };
+    const io = @import("../cli.zig").getIo();
+    try std.Io.Dir.deleteTree(std.Io.Dir.cwd(), io, path);
 }
 
 /// Get directory size in bytes
 pub fn getDirSize(allocator: std.mem.Allocator, path: []const u8) !u64 {
     var total: u64 = 0;
+    const io = @import("../cli.zig").getIo();
 
-    var dir = std.fs.openDirAbsolute(path, .{ .iterate = true }) catch return 0;
-    defer dir.close();
+    var dir = std.Io.Dir.openDirAbsolute(io, path, .{}) catch return 0;
+    defer dir.close(io);
 
     var iter = dir.iterate();
-    while (try iter.next()) |entry| {
+    while (try iter.next(io)) |entry| {
         const entry_path = try std.fs.path.join(allocator, &.{ path, entry.name });
         defer allocator.free(entry_path);
 
@@ -221,9 +230,9 @@ pub fn getDirSize(allocator: std.mem.Allocator, path: []const u8) !u64 {
                 total += try getDirSize(allocator, entry_path);
             },
             .file => {
-                const file = std.fs.openFileAbsolute(entry_path, .{}) catch continue;
-                defer file.close();
-                const stat = try file.stat();
+                const file = std.Io.Dir.openFileAbsolute(io, entry_path, .{}) catch continue;
+                defer file.close(io);
+                const stat = try file.stat(io);
                 total += stat.size;
             },
             else => {},
