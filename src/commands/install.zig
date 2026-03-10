@@ -72,7 +72,8 @@ fn installFromLocal(
     const abs_path = if (std.fs.path.isAbsolute(expanded))
         try allocator.dupe(u8, expanded)
     else blk: {
-        const cwd = try std.process.getCwdAlloc(allocator);
+        const io = @import("../cli.zig").getIo();
+        const cwd = try std.process.currentPathAlloc(io, allocator);
         defer allocator.free(cwd);
         break :blk try std.fs.path.join(allocator, &.{ cwd, expanded });
     };

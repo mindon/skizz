@@ -6,7 +6,8 @@ const builtin = @import("builtin");
 /// - universal: if true, use .agent/skills; otherwise use .claude/skills
 pub fn getSkillsDir(allocator: std.mem.Allocator, project_local: bool, universal: bool) ![]const u8 {
     const folder = if (universal) ".agent/skills" else ".claude/skills";
-    const base = if (project_local) try std.process.getCwdAlloc(allocator) else try getHomeDir(allocator);
+    const io = @import("../cli.zig").getIo();
+    const base = if (project_local) try std.process.currentPathAlloc(io, allocator) else try getHomeDir(allocator);
     defer allocator.free(base);
 
     return try std.fs.path.join(allocator, &.{ base, folder });
@@ -24,7 +25,8 @@ pub fn getSearchDirs(allocator: std.mem.Allocator) ![][]const u8 {
         dirs.deinit(allocator);
     }
 
-    const cwd = try std.process.getCwdAlloc(allocator);
+    const io = @import("../cli.zig").getIo();
+    const cwd = try std.process.currentPathAlloc(io, allocator);
     defer allocator.free(cwd);
 
     const home = try getHomeDir(allocator);

@@ -8,7 +8,7 @@ const io_helper = @import("../io_helper.zig");
 const Color = types.Color;
 
 /// Execute the sync command - updates AGENTS.md with installed skills
-pub fn execute(allocator: std.mem.Allocator, _: std.Io, args: []const []const u8) !void {
+pub fn execute(allocator: std.mem.Allocator, io: std.Io, args: []const []const u8) !void {
     // Parse options
     var options = types.SyncOptions{};
 
@@ -26,7 +26,7 @@ pub fn execute(allocator: std.mem.Allocator, _: std.Io, args: []const []const u8
     }
 
     // Get output file path
-    const cwd = try std.process.getCwdAlloc(allocator);
+    const cwd = try std.process.currentPathAlloc(io, allocator);
     defer allocator.free(cwd);
 
     const output_file = if (options.output) |out|

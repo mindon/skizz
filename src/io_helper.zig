@@ -34,7 +34,7 @@ pub fn readLine(buf: []u8) ?[]const u8 {
 
         if (byte[0] == '\n') {
             if (i > 0 and buf[i - 1] == '\r') {
-                return buf[0..i - 1];
+                return buf[0 .. i - 1];
             }
             return buf[0..i];
         }
